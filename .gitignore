@@ -102,3 +102,12 @@ dist
 
 # TernJS port file
 .tern-port
+
+# generated Artifacts
+generated-artifacts/
+
+# generated contract wrappers
+generated-wrappers/
+
+# lib
+lib/*

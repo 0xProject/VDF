@@ -1,0 +1,6 @@
+lib
+.nyc_output
+generated_artifacts
+generated_wrappers
+package.json
+*.sol

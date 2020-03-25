@@ -27,8 +27,8 @@ contract Verifier {
     // Version of VDF verification which uses more calldata
     function verify_vdf_proof(bytes32 input_random, bytes memory y, bytes memory pi, uint256 iterations, uint256 prime) public view {
         // Check that y is a group member
-        require(group_member(y), "Y inproperly formated");
-        require(group_member(pi), "Pi inproperly formated");
+        require(group_member(y), "Y improperly formatted");
+        require(group_member(pi), "Pi improperly formatted");
         check_hash_to_prime(input_random, y, prime);
         
         // No need to cast this into the group because the size will always be small.
@@ -58,36 +58,36 @@ contract Verifier {
     // }
 
     // This function hard casts a number which must be less than MODULUS into a RSA group member
-    function group_cast(bytes memory canidate)  internal pure {
-        if (!group_member(canidate)) {
-            big_inplace_sub(canidate, HALF_MOD);
+    function group_cast(bytes memory candidate)  internal pure {
+        if (!group_member(candidate)) {
+            big_inplace_sub(candidate, HALF_MOD);
         }
     }
 
     // Returns true if the group member is less than half the RSA group mod
-    // NOTE - Will trim leading zeros from the canidate
-    function group_member(bytes memory canidate) internal pure returns(bool) {
+    // NOTE - Will trim leading zeros from the candidate
+    function group_member(bytes memory candidate) internal pure returns(bool) {
         // Removes any leading zeros so we can can make choices based on length
-        trim(canidate);
+        trim(candidate);
 
-        if (canidate.length < HALF_MOD.length) {
+        if (candidate.length < HALF_MOD.length) {
             return true;
         }
-        if (canidate.length > HALF_MOD.length) {
+        if (candidate.length > HALF_MOD.length) {
             return false;
         }
 
-        for (uint i = 0; i < canidate.length; i++) {
+        for (uint i = 0; i < candidate.length; i++) {
             // If the current byte is less than half mod's byte then the candiate is less than mod
-            if (canidate[i] < HALF_MOD[i]) {
+            if (candidate[i] < HALF_MOD[i]) {
                 return true;
             }
             // If it's strictly more then half mod is greater
-            if (canidate[i] > HALF_MOD[i]) {
+            if (candidate[i] > HALF_MOD[i]) {
                 return false;
             }
         }
-        // We hit this condition if canidate == HALF_MOD
+        // We hit this condition if candidate == HALF_MOD
         return true;
     }
 
@@ -122,7 +122,7 @@ contract Verifier {
             mstore(ptr, 0x20)
             mstore(add(ptr, 0x20), data)
             // Pesimestic update to free memory pointer
-            mstore(0x40, add(mload(0x40), 0x20))
+            mstore(0x40, add(mload(0x40), 0x40))
         }
 
         // Removes any zeros which aren't needed
@@ -153,7 +153,7 @@ contract Verifier {
     // (1) If h = Hash(input_random, y)
     //    (1a) That h is equal to prime except at the 12 last bits and the most signifigant bit.
     //    (1b) that the prime has msb 1
-    // (2) That prime canidate passes the miller rabbin test with 28 round of randomly derived bases [derived from y]
+    // (2) That prime candidate passes the miller rabbin test with 28 round of randomly derived bases [derived from y]
     // TODO - consider adding blockhash to the random base derivation for extra security.
     function check_hash_to_prime(bytes32 input_random, bytes memory y, uint256 prime) public view {
         // Check p is correct result for hash-to-prime
@@ -239,7 +239,7 @@ contract Verifier {
             r += 1;
         }
         for(uint256 i = 0; i < miller_rabin_checks; i++) {
-            // pick a random integer a in the range [2, n − 2]
+            // pick a pseudo-random integer a in the range [2, n − 2]
             uint256 a = (uint256(sha256(abi.encodePacked(n, i))) % (n - 3)) + 2;
             uint256 x = expmod(a, d, n);
             if(x == 1 || x == n - 1) {

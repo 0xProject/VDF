@@ -20,6 +20,9 @@ pragma solidity ^0.5.11;
 
 
 library LibLimb {
+
+    using LibLimb for *;
+
     struct Branch {
         uint256[] limbs;
     }
@@ -33,15 +36,20 @@ library LibLimb {
         returns (Branch memory c)
     {
         uint256 carry = 0;
-        for (uint i = 0; i < max(a.limbs.length, b.limbs.length); i++) {
-            c.limbs[i] = a.limbs[i] + b.limbs[i] + carry;
-            carry = shouldCarry(a.limbs[i], b.limbs[i], carry);
+        uint256 numLimbs = max(a.limbs.length, b.limbs.length);
+        c.limbs = new uint256[](numLimbs);
+        for (uint i = 0; i < numLimbs; i++) {
+            uint256 limbA = a.limbs.get(i);
+            uint256 limbB = b.limbs.get(i);
+            c.limbs[i] = limbA + limbB + carry;
+            carry = shouldAdditionCarry(limbA, limbB, carry);
         }
         if (carry > 0) {
             append(c, carry);
         }
     }
 
+    // FIXME(jalextowle): This is not fully implemented yet.
     function sub(
         Branch memory a,
         Branch memory b
@@ -50,7 +58,14 @@ library LibLimb {
         pure
         returns (Branch memory c)
     {
-
+        uint256 carry = 0;
+        for (uint i = 0; i < max(a.limbs.length, b.limbs.length); i++) {
+            c.limbs[i] = a.limbs[i] - b.limbs[i] - carry;
+            carry = shouldAdditionCarry(a.limbs[i], b.limbs[i], carry);
+        }
+        if (carry > 0) {
+            append(c, carry);
+        }
     }
 
     function append(
@@ -82,6 +97,17 @@ library LibLimb {
         }
     }
 
+    function get(
+        uint256[] memory array,
+        uint256 idx
+    )
+        internal
+        pure
+        returns (uint256)
+    {
+        return idx < array.length ? array[idx] : 0;
+    }
+
     function max(
         uint256 a,
         uint256 b
@@ -93,10 +119,10 @@ library LibLimb {
         return a > b ? a : b;
     }
 
-    function shouldCarry(
+    function shouldAdditionCarry(
         uint256 a,
         uint256 b,
-        uint256 c,
+        uint256 c
     )
         private
         pure

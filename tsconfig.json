@@ -23,6 +23,8 @@
     },
     "include": ["./src/**/*", "./test/**/*", "./generated-wrappers/**/*"],
     "files": [
+        "generated-artifacts/LibLimb.json",
+        "generated-artifacts/LibLimb.json",
         "generated-artifacts/Verifier.json",
         "generated-artifacts/Verifier.json"
     ]

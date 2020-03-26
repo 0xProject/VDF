@@ -5,5 +5,9 @@
  */
 import {ContractArtifact} from 'ethereum-types';
 
+import * as LibLimb from '../generated-artifacts/LibLimb.json';
 import * as Verifier from '../generated-artifacts/Verifier.json';
-export const artifacts = {Verifier: Verifier as ContractArtifact};
+export const artifacts = {
+    LibLimb: LibLimb as ContractArtifact,
+    Verifier: Verifier as ContractArtifact,
+};

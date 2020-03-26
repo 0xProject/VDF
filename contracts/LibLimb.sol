@@ -35,7 +35,7 @@ library LibLimb {
         uint256 carry = 0;
         for (uint i = 0; i < max(a.limbs.length, b.limbs.length); i++) {
             c.limbs[i] = a.limbs[i] + b.limbs[i] + carry;
-            carry = shouldCarry(a.limbs[i], b.limbs[i]);
+            carry = shouldCarry(a.limbs[i], b.limbs[i], carry);
         }
         if (carry > 0) {
             append(c, carry);
@@ -95,12 +95,13 @@ library LibLimb {
 
     function shouldCarry(
         uint256 a,
-        uint256 b
+        uint256 b,
+        uint256 c,
     )
         private
         pure
         returns (uint256)
     {
-        return a + b < a ? 1 : 0;
+        return a + b + c < a ? 1 : 0;
     }
 }

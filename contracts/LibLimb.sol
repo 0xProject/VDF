@@ -49,7 +49,6 @@ library LibLimb {
         }
     }
 
-    // FIXME(jalextowle): This is not fully implemented yet.
     function sub(
         Branch memory a,
         Branch memory b
@@ -60,14 +59,20 @@ library LibLimb {
     {
         uint256 carry = 0;
         for (uint i = 0; i < max(a.limbs.length, b.limbs.length); i++) {
-            c.limbs[i] = a.limbs[i] - b.limbs[i] - carry;
-            carry = shouldAdditionCarry(a.limbs[i], b.limbs[i], carry);
+            uint256 limbA = a.limbs.get(i);
+            uint256 limbB = b.limbs.get(i);
+            c.limbs[i] = limbA - limbB - carry;
+            carry = shouldSubtractionCarry(limbA, limbB, carry);
         }
         if (carry > 0) {
-            append(c, carry);
+            append(c, uint256(-1));
         }
     }
 
+    // NOTE(jalextowle): This function is not memory-safe in general. In the context,
+    // of this program, append is safely used (we are always appending to the last
+    // memory array that was allocated), but it is not safe to use in general. This is
+    // why the function has been marked as `private`.
     function append(
         Branch memory branch,
         uint256 lastLimb
@@ -129,5 +134,17 @@ library LibLimb {
         returns (uint256)
     {
         return a + b + c < a ? 1 : 0;
+    }
+
+    function shouldSubtractionCarry(
+        uint256 a,
+        uint256 b,
+        uint256 c
+    )
+        private
+        pure
+        returns (uint256)
+    {
+        return a - b - c > a ? 1 : 0;
     }
 }

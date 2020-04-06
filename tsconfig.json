@@ -1,29 +1,17 @@
 {
     "compilerOptions": {
-        "module": "commonjs",
         "target": "es5",
-        "lib": ["es2017", "dom", "esnext.asynciterable", "es2018.promise"],
-        "experimentalDecorators": true,
-        "downlevelIteration": true,
-        "noImplicitReturns": true,
-        "pretty": true,
-        "skipLibCheck": true,
-        "typeRoots": [
-            "node_modules/@0x/typescript-typings/types",
-            "node_modules/@types"
-        ],
+        "module": "commonjs",
         "strict": true,
-        "composite": true,
-        "declaration": true,
-        "declarationMap": true,
-        "sourceMap": true,
-        "outDir": "lib",
-        "rootDir": ".",
+        "esModuleInterop": true,
+        "outDir": "dist",
         "resolveJsonModule": true
     },
-    "include": ["./src/**/*", "./test/**/*", "./generated-wrappers/**/*"],
+    "include": ["./scripts", "./test"],
     "files": [
-        "generated-artifacts/Verifier.json",
-        "generated-artifacts/Verifier.json"
+        "./buidler.config.ts",
+        "./node_modules/@nomiclabs/buidler-ethers/src/type-extensions.d.ts",
+        "node_modules/buidler-typechain/src/type-extensions.d.ts",
+        "./node_modules/@nomiclabs/buidler-waffle/src/type-extensions.d.ts"
     ]
 }

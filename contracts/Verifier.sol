@@ -16,13 +16,12 @@
 
 */
 
-pragma solidity ^0.5.11;
-
+pragma solidity ^0.6.4;
 
 contract Verifier {
     // Preset 2048 bit mod
-    bytes constant MODULUS = "0xC7970CEEDCC3B0754490201A7AA613CD73911081C790F5F1A8726F463550BB5B7FF0DB8E1EA1189EC72F93D1650011BD721AEEACC2ACDE32A04107F0648C2813A31F5B0B7765FF8B44B4B6FFC93384B646EB09C7CF5E8592D40EA33C80039F35B4F14A04B51F7BFD781BE4D1673164BA8EB991C2C4D730BBBE35F592BDEF524AF7E8DAEFD26C66FC02C479AF89D64D373F442709439DE66CEB955F3EA37D5159F6135809F85334B5CB1813ADDC80CD05609F10AC6A95AD65872C909525BDAD32BC729592642920F24C61DC5B3C3B7923E56B16A4D9D373D8721F24A3FC0F1B3131F55615172866BCCC30F95054C824E733A5EB6817F7BC16399D48C6361CC7E5";
-    bytes constant HALF_MOD = "0x63CB86776E61D83AA248100D3D5309E6B9C88840E3C87AF8D43937A31AA85DADBFF86DC70F508C4F6397C9E8B28008DEB90D775661566F19502083F832461409D18FAD85BBB2FFC5A25A5B7FE499C25B237584E3E7AF42C96A07519E4001CF9ADA78A5025A8FBDFEBC0DF268B398B25D475CC8E1626B985DDF1AFAC95EF7A9257BF46D77E936337E01623CD7C4EB269B9FA21384A1CEF33675CAAF9F51BEA8ACFB09AC04FC299A5AE58C09D6EE406682B04F8856354AD6B2C396484A92DED6995E394AC9321490792630EE2D9E1DBC91F2B58B526CE9B9EC390F9251FE078D9898FAAB0A8B94335E66187CA82A64127399D2F5B40BFBDE0B1CCEA4631B0E63F2";
+    bytes constant MODULUS = hex"C7970CEEDCC3B0754490201A7AA613CD73911081C790F5F1A8726F463550BB5B7FF0DB8E1EA1189EC72F93D1650011BD721AEEACC2ACDE32A04107F0648C2813A31F5B0B7765FF8B44B4B6FFC93384B646EB09C7CF5E8592D40EA33C80039F35B4F14A04B51F7BFD781BE4D1673164BA8EB991C2C4D730BBBE35F592BDEF524AF7E8DAEFD26C66FC02C479AF89D64D373F442709439DE66CEB955F3EA37D5159F6135809F85334B5CB1813ADDC80CD05609F10AC6A95AD65872C909525BDAD32BC729592642920F24C61DC5B3C3B7923E56B16A4D9D373D8721F24A3FC0F1B3131F55615172866BCCC30F95054C824E733A5EB6817F7BC16399D48C6361CC7E5";
+    bytes constant HALF_MOD = hex"63CB86776E61D83AA248100D3D5309E6B9C88840E3C87AF8D43937A31AA85DADBFF86DC70F508C4F6397C9E8B28008DEB90D775661566F19502083F832461409D18FAD85BBB2FFC5A25A5B7FE499C25B237584E3E7AF42C96A07519E4001CF9ADA78A5025A8FBDFEBC0DF268B398B25D475CC8E1626B985DDF1AFAC95EF7A9257BF46D77E936337E01623CD7C4EB269B9FA21384A1CEF33675CAAF9F51BEA8ACFB09AC04FC299A5AE58C09D6EE406682B04F8856354AD6B2C396484A92DED6995E394AC9321490792630EE2D9E1DBC91F2B58B526CE9B9EC390F9251FE078D9898FAAB0A8B94335E66187CA82A64127399D2F5B40BFBDE0B1CCEA4631B0E63F2";
 
     // Version of VDF verification which uses more calldata
     function verify_vdf_proof(bytes32 input_random, bytes memory y, bytes memory pi, uint256 iterations, uint256 prime) public view {
@@ -34,75 +33,44 @@ contract Verifier {
         // No need to cast this into the group because the size will always be small.
         uint256 r = expmod(2, iterations, prime);
 
-        bytes memory part_1 = bignum_expmod(pi, r, MODULUS);
+        bytes memory part_1 = bignum_expmod(pi, prime, MODULUS);
+        part_1 = trim(part_1);
         bytes memory part_2 = bignum_expmod(bytes_to_big_num(input_random), r, MODULUS);
-        bytes memory proposed_y = big_mulmod(part_1, part_2, MODULUS);
-        group_cast(proposed_y);
+        part_2 = trim(part_2);
+        // Gives us four times what we want
+        bytes memory proposed_y = almost_mulmod(part_1, part_2, MODULUS);
+        proposed_y = trim(proposed_y);
+        // So we compare to four times the y
+        bytes memory almost_y = almost_mulmod(y, hex"01", MODULUS);
+        almost_y = trim(almost_y);
         
-        require(big_cmp(proposed_y, y), "VDF proof verification failed");
+        require(big_eq(proposed_y, almost_y), "VDF proof verification failed");
     }
 
-    // This is a writeup of the second method, but given the fairly low calldata costs we don't really need it
-
-    // // This is the second possible method to verify the vdf, it takes less input data
-    // function verify_vdf_proof2(bytes32 input_random, bytes memory pi, uint256 iterations, uint256 prime) public view { 
-    //     require(group_member(pi), "Pi inproperly formated");
-    //     // We don't cast r to group because it's less than 256 bits and half mod is always much larger
-    //     uint256 r = expmod(2, iterations, prime);
-
-    //     bytes memory part_1 = bignum_expmod(pi, r, MODULUS);
-    //     bytes memory part_2 = bignum_expmod(bytes_to_big_num(input_random), r, MODULUS);
-    //     bytes memory y = group_cast(big_mulmod(part_1, part_2, MODULUS));
-        
-    //     check_hash_to_prime(input_random, y, prime);
-    // }
-
     // This function hard casts a number which must be less than MODULUS into a RSA group member
-    function group_cast(bytes memory candidate)  internal pure {
+    function group_cast(bytes memory candidate)  internal view {
         if (!group_member(candidate)) {
-            big_inplace_sub(candidate, HALF_MOD);
+            candidate = big_sub(candidate, HALF_MOD);
         }
     }
 
     // Returns true if the group member is less than half the RSA group mod
     // NOTE - Will trim leading zeros from the candidate
     function group_member(bytes memory candidate) internal pure returns(bool) {
-        // Removes any leading zeros so we can can make choices based on length
-        trim(candidate);
-
-        if (candidate.length < HALF_MOD.length) {
-            return true;
-        }
-        if (candidate.length > HALF_MOD.length) {
-            return false;
-        }
-
-        for (uint i = 0; i < candidate.length; i++) {
-            // If the current byte is less than half mod's byte then the candiate is less than mod
-            if (candidate[i] < HALF_MOD[i]) {
-                return true;
-            }
-            // If it's strictly more then half mod is greater
-            if (candidate[i] > HALF_MOD[i]) {
-                return false;
-            }
-        }
-        // We hit this condition if candidate == HALF_MOD
-        return true;
+        candidate = trim(candidate);
+        return lte(candidate, HALF_MOD);
     }
 
     // This trim function removes leading zeros don't contain information in our big endian format.
-    function trim(bytes memory data) internal pure {
+    function trim(bytes memory data) internal pure returns(bytes memory) {
         uint256 msb = 0;
         while (data[msb] == 0) {
             msb ++;
-
             if (msb == data.length) {
-                data = "0x";
-                return;
+                return hex"";
             }
         }
-
+        
         if (msb > 0) {
             // We don't want to copy data around, so we do the following assembly manipulation:
             // Move the data pointer forward by msb, then store in the length slot (current length - msb)
@@ -112,6 +80,7 @@ contract Verifier {
                 mstore(data, sub(current_len, msb))
             }
         }
+        return data;
     }
     
     // Casts a bytes32 value into bytes memory string
@@ -126,21 +95,210 @@ contract Verifier {
         }
 
         // Removes any zeros which aren't needed
-        trim(ptr);
-    }
-    
-    function big_mulmod(bytes memory a, bytes memory b, bytes memory mod) internal pure returns(bytes memory c) {
-        // TODO - big number mulmod
+        ptr = trim(ptr);
     }
 
-    // This function writes a - b to the memory pointer at a;
-    function big_inplace_sub(bytes memory a, bytes memory b) internal pure {
-        // TODO - Big number sub
+    // This function returns (4ab) % mod for big numbs
+    function almost_mulmod(bytes memory a, bytes memory b, bytes memory mod) internal view returns(bytes memory c) {
+        bytes memory part1 = bignum_expmod(modular_add(a, b), 2, mod);
+        bytes memory part2 = bignum_expmod(modular_sub(a, b), 2, mod);
+        // Returns (a+b)^2 - (a-b)^2 = 4ab
+        return modular_sub(part1, part2);
+    }
+
+    // Uses the mod const in the contract and assumes that a < Mod, b < Mod
+    // Ie that the inputs are already modular group memembers.
+    function modular_add(bytes memory a, bytes memory b) internal view returns (bytes memory) {
+        bytes memory result = big_add(a, b);
+        if (lte(result, MODULUS) && !big_eq(result, MODULUS)) {
+            return result;
+        } else {
+            // NOTE a + b where a < MOD, b < MOD => a+b < 2 MOD => a+b % mod = a+b - MOD
+            return big_sub(result, MODULUS);
+        }
+    }
+
+    function modular_sub(bytes memory a, bytes memory b) internal view returns(bytes memory) {
+        if (lte(b, a)) {
+            return big_sub(a, b);
+        } else {
+            return (big_sub(MODULUS, big_sub(b, a)));
+        }
+    }
+
+    // Returns (a <= b);
+    // Requires trimmed inputs
+    function lte(bytes memory a, bytes memory b) internal pure returns (bool) {
+        if (a.length < b.length) {
+            return true;
+        }
+        if (a.length > b.length) {
+            return false;
+        }
+
+        for (uint i = 0; i < a.length; i++) {
+            // If the current byte of a is less than that of b then a is less than b
+            if (a[i] < b[i]) {
+                return true;
+            }
+            // If it's strictly more then b is greater
+            if (a[i] > b[i]) {
+                return false;
+            }
+        }
+        // We hit this condition if a == b
+        return true;
+    }
+
+    uint mask = 0x00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
+    // This big add function has performance on the order of the limb version, but
+    // it worse because it chunks out limbs for as long as it can from the bytes and
+    // when there isn't enough data for a 31 bit limb in either a or b it goes byte by byte
+    // Preformance degrades to byte by byte when adding a full 2048 bit number to a small number.
+    // It is best when adding two full sized 2048 bit numbers
+    function big_add(bytes memory a, bytes memory b) internal view returns(bytes memory) {
+        // a + b < 2*max(a, b) so this can't have more bytes than the max length + 1
+        bytes memory c = new bytes(max(a.length, b.length) + 1);
+        // The index from the back of the data arrays [since this is Big endian]
+        uint current_index = 0;
+        uint8 carry = 0;
+        // This loop grabs large numbers from the byte array for as long as we can
+        while (a.length - current_index > 31 && b.length - current_index > 31) {
+            // Will have 31 bytes of a's next digits
+            uint a_data;
+            // Will have 31 bytes of b's next digits
+            uint b_data;
+            assembly {
+                //Load from memory at the data location of a + a.length - (current_index - 32)
+                // This can load a bit of extra data which will be masked off.
+                a_data := mload(add(add(a, 0x20), sub(mload(a), add(current_index, 32))))
+                //Load from memory at the data location of b + b.length - (current_index - 32)
+                b_data := mload(add(add(b, 0x20), sub(mload(b), add(current_index, 32))))
+            }
+            a_data = a_data & mask;
+            b_data = b_data & mask;
+            // Add the input data and the carried data.
+            // TODO - Limb overflow checks the implementation may break on a+b > 2^31*8 with carry != 0
+            uint sum =  a_data + b_data + carry;
+            // Coerce solidity into giving me the first byte as a small number;
+            carry = uint8(bytes1(bytes32(sum)));
+            // Slice off the carry
+            sum = sum & mask;
+            // Store the sum-ed digits
+            assembly {
+                mstore(add(add(c, 0x20), sub(mload(c), add(current_index, 32))), sum)
+            }
+            current_index += 31;
+        }
+        
+        // Now we go byte by byte
+        while (current_index < max(a.length, b.length)) {
+            uint16 a_data;
+            if (current_index < a.length) {
+                a_data = uint16(uint8(a[a.length - current_index-1]));
+            } else {
+                a_data = 0;
+            }
+            
+            uint16 b_data;
+            if (current_index < b.length) {
+                b_data = uint16(uint8(b[b.length - current_index-1]));
+            } else {
+                b_data = 0;
+            }
+
+            uint16 sum = a_data + b_data + carry;
+            c[c.length - current_index-1] = bytes1(uint8(sum));
+            carry = uint8(sum >> 8);
+            current_index++;
+        }
+        c[0] = bytes1(carry);
+        c = trim(c);
+        return c;
+    }
+
+    function max(uint a, uint b) internal pure returns (uint) {
+        return a > b ? a : b;
+    }
+
+    // This extra digit allows us to preform the subtraction without underflow
+    uint max_set_digit = 0x0100000000000000000000000000000000000000000000000000000000000000;
+
+    // This function reverts on underflows, and expects trimed data
+    function big_sub(bytes memory a, bytes memory b) internal view returns(bytes memory) {
+        require(a.length >= b.length, "Subtraction underflow");
+        // a - b =< a so this can't have more bytes than a
+        bytes memory c = new bytes(a.length);
+        // The index from the back of the data arrays [since this is Big endian]
+        uint current_index = 0;
+        uint8 carry = 0;
+        // This loop grabs large numbers from the byte array for as long as we can
+        while (a.length - current_index > 31 && b.length - current_index > 31) {
+            // Will have 31 bytes of a's next digits
+            uint a_data;
+            // Will have 31 bytes of b's next digits
+            uint b_data;
+            assembly {
+                //Load from memory at the data location of a + a.length - (current_index - 32)
+                // This can load a bit of extra data which will be masked off.
+                a_data := mload(add(add(a, 0x20), sub(mload(a), add(current_index, 32))))
+                //Load from memory at the data location of b + b.length - (current_index - 32)
+                b_data := mload(add(add(b, 0x20), sub(mload(b), add(current_index, 32))))
+            }
+            a_data = a_data & mask;
+            b_data = b_data & mask;
+            uint sub_digit;
+            // We now check if we can sub b_data + carry from a_data
+            if (a_data >= b_data + carry) {
+                sub_digit = a_data - (b_data + carry);
+                carry = 0;
+            } else {
+                // If not we add a one digit at the top of a, then sub
+                sub_digit = (a_data + max_set_digit) - (b_data + carry);
+                carry = 1;
+            }
+
+            // Store the sum-ed digits
+            assembly {
+                mstore(add(add(c, 0x20), sub(mload(c), add(current_index, 32))), sub_digit)
+            }
+            current_index += 31;
+        }
+        
+        // Now we go byte by byte through the bytes of a
+        while (current_index < a.length) {
+            uint16 a_data = uint16(uint8(a[a.length - current_index-1]));
+            
+            // Since tighly packed this may implicly be zero without being set
+            uint16 b_data;
+            if (current_index < b.length) {
+                b_data = uint16(uint8(b[b.length - current_index-1]));
+            } else {
+                b_data = 0;
+            }
+
+            uint sub_digit;
+            // We now check if we can sub b_data + carry from a_data
+            if (a_data >= b_data + carry) {
+                sub_digit = a_data - (b_data + carry);
+                carry = 0;
+            } else {
+                // If not we add a one digit at the top of a, then sub
+                sub_digit = (a_data + 0x0100) - (b_data + carry);
+                carry = 1;
+            }
+
+            c[c.length - current_index-1] = bytes1(uint8(sub_digit));
+            current_index++;
+        }
+        require(carry == 0, "Underflow error");
+        c = trim(c);
+        return c;
     }
     
     // Cheap big number comparsion using hash
     // TODO - Verify that this is actually cheaper for the bitsize in question
-    function big_cmp(bytes memory a, bytes memory b) internal pure returns(bool) {
+    function big_eq(bytes memory a, bytes memory b) internal pure returns(bool) {
         return keccak256(abi.encodePacked(a)) == keccak256(abi.encodePacked(b));
     }
     
